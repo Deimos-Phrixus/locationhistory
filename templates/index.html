@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      body{
+        font-family: monospace;
+      }
+       /* Set the size of the div element that contains the map */
+      #map {
+        height: 400px;  /* The height is 400 pixels */
+        width: 100%;  /* The width is the width of the web page */
+        padding-bottom: 5%;
+       }
+       h3{
+         text-align: center;
+
+       }
+       form{
+         text-align: center;
+         margin: auto;
+         padding: 5%;
+       }
+    </style>
+  </head>
+  <body>
+    <h3>GOOGLE Maps demo</h3>
+    <!--The div element for the map -->
+    <div id="map"></div>
+
+    <div>
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="file" name="travelzip">
+        <button type="submit">Upload</button>
+      </form>
+    </div>
+    <script>
+// Initialize and add the map
+function initMap() {
+  // The location of Uluru
+  var uluru = {lat: 51.344, lng: 53.036};
+  // The map, centered at Uluru
+  var map = new google.maps.Map(
+      document.getElementById('map'), {zoom: 4, center: uluru});
+  // The marker, positioned at Uluru
+  {% for travel in travels %}
+  var poly_{{travel.travel.id}} = new google.maps.Polyline({
+    path: [
+      {lat: {{travel.travel.start_lat}},  lng:{{travel.travel.start_lng}}},
+      {% for t in travel.transits %}
+      {lat:{{ t.lat}}, lng: {{t.lng }}},
+      {% endfor %}
+      {% for w in travel.waypoints %}
+      {lat: {{w.lat}}, lng: {{w.lng}}},
+      {% endfor %}
+      {lat: {{travel.travel.end_lat}}, lng: {{travel.travel.end_lng}}}],
+    strokeColor: '#000000',
+    strokeOpacity: 1,
+    strokeWeight: 3,
+    map: map
+  });
+
+  {% endfor %}
+  {% for rp in rest_points %}
+    rp_drawn = false;
+    
+    var x_color="#ff0000"
+    var startPos = new google.maps.LatLng({{rp.start.lat}}, {{rp.start.lng}});
+    var endPos = new google.maps.LatLng({{rp.end.lat}}, {{rp.end.lng}});
+    {% for travel in travels %}
+    
+    var a = google.maps.geometry.poly.isLocationOnEdge(startPos, poly_{{travel.travel.id}}, 0.000135);
+    var b = google.maps.geometry.poly.isLocationOnEdge(endPos, poly_{{travel.travel.id}}, 0.000135);
+    var points = [startPos, endPos, {% for rpw in rp.waypoints %} new google.maps.LatLng({{rpw.latE7}}, {{rpw.lngE7}}), {% endfor %} ];
+    
+    
+    {% for tc in rp.travel_check %}
+    if (x_color == "#ff0000") {
+      var pointCount = 0;
+      points.forEach(function (point) {
+        if (google.maps.geometry.poly.containsLocation(point, poly_{{tc.id}})) {
+          pointCount += 1;
+        }
+      }); 
+      if (pointCount > 2) {
+        console.log("Same possible travel: ");
+        console.log("Travel type: {{ tc.travel_type_1}}");
+        console.log("Travel type of r : {{ rp.travel_type.type1 }}");
+        console.log("{{tc.start_time}}");
+        console.log("{{rp.start.time}}");
+        x_color = "#0000ff";
+      }
+    }
+    
+    {% endfor %}
+     
+
+    if (a) {
+      rp_drawn = true
+    }
+
+    if (b) {
+      rp_drawn = true
+    }
+
+    {% endfor %}
+    var color = "#00ff00";
+    
+    if (rp_drawn) {
+      color = x_color;
+    }
+    var poly = new google.maps.Polyline({
+      path: [
+      {lat: {{rp.start.lat}}, lng: {{rp.start.lng}}},
+      {lat: {{rp.end.lat}}, lng:{{rp.end.lng}}}
+      ],
+      strokeColor: color,
+      strokeOpacity: 1,
+      strokeWeight: 3,
+      map: map
+    });
+
+
+  {% endfor %}
+
+}
+    </script>
+    <!--Load the API from the specified URL
+    * The async attribute allows the browser to render the page while the API loads
+    * The key parameter will contain your own API key (which is not needed for this tutorial)
+    * The callback parameter executes the initMap() function
+    -->
+    <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=API_KEY&callback=initMap&libraries=geometry">
+    </script>
+  </body>
+</html>
